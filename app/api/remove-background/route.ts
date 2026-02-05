@@ -1,13 +1,20 @@
 import { fal } from "@fal-ai/client";
 import { NextRequest, NextResponse } from "next/server";
 
-// Configure fal client with API key from environment
-fal.config({
-  credentials: process.env.FAL_KEY,
-});
+const credentials = process.env.FAL_KEY ?? process.env.GEMINI_API_KEY;
+
+if (credentials) {
+  fal.config({ credentials });
+}
 
 export async function POST(request: NextRequest) {
   try {
+    if (!credentials) {
+      return NextResponse.json(
+        { error: "Missing FAL_KEY or GEMINI_API_KEY" },
+        { status: 400 }
+      );
+    }
     const { imageUrl } = await request.json();
 
     if (!imageUrl) {

@@ -1,10 +1,11 @@
 import { fal } from "@fal-ai/client";
 import { NextRequest, NextResponse } from "next/server";
 
-// Configure fal client with API key from environment
-fal.config({
-  credentials: process.env.FAL_KEY,
-});
+const credentials = process.env.FAL_KEY ?? process.env.GEMINI_API_KEY;
+
+if (credentials) {
+  fal.config({ credentials });
+}
 
 const CHARACTER_STYLE_PROMPT = `Generate a single character only, centered in the frame on a plain white background.
 The character should be rendered in detailed 32-bit pixel art style (like PlayStation 1 / SNES era games).
@@ -22,6 +23,12 @@ Maintain the character's key features, colors, and identity while converting to 
 
 export async function POST(request: NextRequest) {
   try {
+    if (!credentials) {
+      return NextResponse.json(
+        { error: "Missing FAL_KEY or GEMINI_API_KEY" },
+        { status: 400 }
+      );
+    }
     const { prompt, imageUrl } = await request.json();
 
     // Image-to-image mode: convert uploaded image to pixel art

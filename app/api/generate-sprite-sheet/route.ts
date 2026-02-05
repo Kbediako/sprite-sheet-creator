@@ -1,10 +1,11 @@
 import { fal } from "@fal-ai/client";
 import { NextRequest, NextResponse } from "next/server";
 
-// Configure fal client with API key from environment
-fal.config({
-  credentials: process.env.FAL_KEY,
-});
+const credentials = process.env.FAL_KEY ?? process.env.GEMINI_API_KEY;
+
+if (credentials) {
+  fal.config({ credentials });
+}
 
 const WALK_SPRITE_PROMPT = `Create a 4-frame pixel art walk cycle sprite sheet of this character.
 
@@ -84,6 +85,12 @@ const ASPECT_RATIOS: Record<SpriteType, string> = {
 
 export async function POST(request: NextRequest) {
   try {
+    if (!credentials) {
+      return NextResponse.json(
+        { error: "Missing FAL_KEY or GEMINI_API_KEY" },
+        { status: 400 }
+      );
+    }
     const { characterImageUrl, type = "walk", customPrompt } = await request.json();
 
     if (!characterImageUrl) {

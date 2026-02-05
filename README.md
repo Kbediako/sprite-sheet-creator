@@ -46,9 +46,11 @@ Nano-banana-pro uses your character image to generate backgrounds that match the
 npm install
 ```
 
-2. Create a `.env.local` file with your fal.ai API key:
+2. Create a `.env.local` file with your fal.ai API key (or a Gemini key):
 ```
 FAL_KEY=your_api_key_here
+# or
+GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
 Get your API key at https://fal.ai/dashboard/keys
