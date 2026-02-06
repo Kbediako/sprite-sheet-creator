@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateImage, getGeminiApiKey } from "../../lib/gemini-image";
+import {
+  BACKGROUND_REMOVAL_PROMPT,
+  generateImage,
+  getGeminiApiKey
+} from "../../lib/gemini-image";
+
+export const maxDuration = 300;
 
 const LAYER1_PROMPT = (characterPrompt: string) =>
   `Create the SKY/BACKDROP layer for a side-scrolling pixel art game parallax background.
@@ -22,10 +28,6 @@ Elements should fill the frame from middle down to bottom.
 
 Style: Pixel art matching the other images.
 IMPORTANT: Use a transparent background (checkerboard pattern) so this layer can overlay the others.`;
-
-const REMOVE_BACKGROUND_PROMPT = `Remove the background from this layer.
-Keep all foreground/midground artwork intact.
-Return a PNG with transparent alpha background, no checkerboard.`;
 
 const LAYER3_PROMPT = `Create the FOREGROUND layer of a 3-layer parallax background for a side-scrolling pixel art game.
 
@@ -59,9 +61,9 @@ async function removeBackground(
   imageUrl: string
 ): Promise<{ url: string; width: number; height: number }> {
   const image = await generateImage({
-    prompt: REMOVE_BACKGROUND_PROMPT,
+    prompt: BACKGROUND_REMOVAL_PROMPT,
     imageUrls: [imageUrl],
-    aspectRatio: "21:9",
+    aspectRatio: "source",
     imageSize: "1K"
   });
 
@@ -94,9 +96,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Single layer regeneration
-    if (regenerateLayer && existingLayers) {
-      if (regenerateLayer === 1) {
+    const hasRegenerateLayer =
+      regenerateLayer !== undefined && regenerateLayer !== null;
+
+    if (hasRegenerateLayer) {
+      const layerNumber = Number(regenerateLayer);
+      if (!Number.isInteger(layerNumber) || ![1, 2, 3].includes(layerNumber)) {
+        return NextResponse.json(
+          { error: "regenerateLayer must be one of: 1, 2, 3" },
+          { status: 400 }
+        );
+      }
+
+      const hasExistingLayers =
+        existingLayers &&
+        typeof existingLayers.layer1Url === "string" &&
+        typeof existingLayers.layer2Url === "string" &&
+        typeof existingLayers.layer3Url === "string";
+
+      if (!hasExistingLayers) {
+        return NextResponse.json(
+          { error: "existingLayers with layer1Url/layer2Url/layer3Url is required when regenerateLayer is set" },
+          { status: 400 }
+        );
+      }
+
+      if (layerNumber === 1) {
         console.log("Regenerating layer 1 (sky/background)...");
         const layer1 = await generateLayer(
           LAYER1_PROMPT(characterPrompt),
@@ -108,9 +133,9 @@ export async function POST(request: NextRequest) {
           layer2Url: existingLayers.layer2Url,
           layer3Url: existingLayers.layer3Url,
           width: layer1.width,
-          height: layer1.height,
+          height: layer1.height
         });
-      } else if (regenerateLayer === 2) {
+      } else if (layerNumber === 2) {
         console.log("Regenerating layer 2 (midground)...");
         const layer2Raw = await generateLayer(
           LAYER2_PROMPT,
@@ -124,9 +149,9 @@ export async function POST(request: NextRequest) {
           layer2Url: layer2.url,
           layer3Url: existingLayers.layer3Url,
           width: layer2.width,
-          height: layer2.height,
+          height: layer2.height
         });
-      } else if (regenerateLayer === 3) {
+      } else if (layerNumber === 3) {
         console.log("Regenerating layer 3 (foreground)...");
         const layer3Raw = await generateLayer(
           LAYER3_PROMPT,
@@ -140,7 +165,7 @@ export async function POST(request: NextRequest) {
           layer2Url: existingLayers.layer2Url,
           layer3Url: layer3.url,
           width: layer3.width,
-          height: layer3.height,
+          height: layer3.height
         });
       }
     }

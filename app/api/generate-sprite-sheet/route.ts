@@ -62,6 +62,7 @@ Keep movements SUBTLE - this is a gentle breathing/idle loop, not dramatic motio
 Use detailed 32-bit pixel art style with proper shading and highlights. Same character design in all frames. Character facing right.`;
 
 type SpriteType = "walk" | "jump" | "attack" | "idle";
+const VALID_SPRITE_TYPES: SpriteType[] = ["walk", "jump", "attack", "idle"];
 
 const PROMPTS: Record<SpriteType, string> = {
   walk: WALK_SPRITE_PROMPT,
@@ -94,9 +95,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const spriteType = (type as SpriteType) || "walk";
-    const prompt = customPrompt || PROMPTS[spriteType] || PROMPTS.walk;
-    const aspectRatio = ASPECT_RATIOS[spriteType] || ASPECT_RATIOS.walk;
+    const spriteType: SpriteType = VALID_SPRITE_TYPES.includes(type as SpriteType)
+      ? (type as SpriteType)
+      : "walk";
+    const prompt = customPrompt || PROMPTS[spriteType];
+    const aspectRatio = ASPECT_RATIOS[spriteType];
 
     const image = await generateImage({
       prompt,

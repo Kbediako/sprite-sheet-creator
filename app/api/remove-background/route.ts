@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateImage, getGeminiApiKey } from "../../lib/gemini-image";
-
-const BACKGROUND_REMOVAL_PROMPT = `Remove the background from this image.
-Keep only the character/object fully intact.
-Return a PNG with transparent background (alpha channel), no checkerboard, no solid background.`;
+import {
+  BACKGROUND_REMOVAL_PROMPT,
+  generateImage,
+  getGeminiApiKey
+} from "../../lib/gemini-image";
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     const image = await generateImage({
       prompt: BACKGROUND_REMOVAL_PROMPT,
       imageUrls: [imageUrl],
-      aspectRatio: "1:1",
+      aspectRatio: "source",
       imageSize: "1K"
     });
 

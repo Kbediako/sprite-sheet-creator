@@ -47,7 +47,7 @@ npm install
 ```
 
 2. Create a `.env.local` file with your Gemini API key:
-```
+```bash
 GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
@@ -77,5 +77,5 @@ npm run dev
 
 - Next.js 14
 - React 18
-- Google Gemini image generation API (`nano-banana-pro-preview`)
+- Google Gemini image generation API (default `gemini-3-pro-image-preview`)
 - HTML Canvas
