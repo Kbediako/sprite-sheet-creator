@@ -1,11 +1,5 @@
-import { fal } from "@fal-ai/client";
 import { NextRequest, NextResponse } from "next/server";
-
-const credentials = process.env.FAL_KEY ?? process.env.GEMINI_API_KEY;
-
-if (credentials) {
-  fal.config({ credentials });
-}
+import { generateImage, getGeminiApiKey } from "../../lib/gemini-image";
 
 const LAYER1_PROMPT = (characterPrompt: string) =>
   `Create the SKY/BACKDROP layer for a side-scrolling pixel art game parallax background.
@@ -29,6 +23,10 @@ Elements should fill the frame from middle down to bottom.
 Style: Pixel art matching the other images.
 IMPORTANT: Use a transparent background (checkerboard pattern) so this layer can overlay the others.`;
 
+const REMOVE_BACKGROUND_PROMPT = `Remove the background from this layer.
+Keep all foreground/midground artwork intact.
+Return a PNG with transparent alpha background, no checkerboard.`;
+
 const LAYER3_PROMPT = `Create the FOREGROUND layer of a 3-layer parallax background for a side-scrolling pixel art game.
 
 I've sent you images of: 1) the character, 2) the background/sky layer, 3) the middle layer.
@@ -43,61 +41,42 @@ async function generateLayer(
   imageUrls: string[],
   aspectRatio: string = "21:9"
 ): Promise<{ url: string; width: number; height: number }> {
-  const result = await fal.subscribe("fal-ai/nano-banana-pro/edit", {
-    input: {
-      prompt,
-      image_urls: imageUrls,
-      num_images: 1,
-      aspect_ratio: aspectRatio,
-      output_format: "png",
-      resolution: "1K",
-    },
+  const image = await generateImage({
+    prompt,
+    imageUrls,
+    aspectRatio,
+    imageSize: "1K"
   });
 
-  const data = result.data as {
-    images: Array<{ url: string; width: number; height: number }>;
-  };
-
-  if (!data.images || data.images.length === 0) {
-    throw new Error("No image generated");
-  }
-
   return {
-    url: data.images[0].url,
-    width: data.images[0].width,
-    height: data.images[0].height,
+    url: image.imageUrl,
+    width: image.width,
+    height: image.height
   };
 }
 
 async function removeBackground(
   imageUrl: string
 ): Promise<{ url: string; width: number; height: number }> {
-  const result = await fal.subscribe("fal-ai/bria/background/remove", {
-    input: {
-      image_url: imageUrl,
-    },
+  const image = await generateImage({
+    prompt: REMOVE_BACKGROUND_PROMPT,
+    imageUrls: [imageUrl],
+    aspectRatio: "21:9",
+    imageSize: "1K"
   });
 
-  const data = result.data as {
-    image: { url: string; width: number; height: number };
-  };
-
-  if (!data.image) {
-    throw new Error("Background removal failed");
-  }
-
   return {
-    url: data.image.url,
-    width: data.image.width,
-    height: data.image.height,
+    url: image.imageUrl,
+    width: image.width,
+    height: image.height
   };
 }
 
 export async function POST(request: NextRequest) {
   try {
-    if (!credentials) {
+    if (!getGeminiApiKey()) {
       return NextResponse.json(
-        { error: "Missing FAL_KEY or GEMINI_API_KEY" },
+        { error: "Missing GEMINI_API_KEY" },
         { status: 400 }
       );
     }

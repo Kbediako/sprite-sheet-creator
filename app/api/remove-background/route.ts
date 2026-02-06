@@ -1,17 +1,15 @@
-import { fal } from "@fal-ai/client";
 import { NextRequest, NextResponse } from "next/server";
+import { generateImage, getGeminiApiKey } from "../../lib/gemini-image";
 
-const credentials = process.env.FAL_KEY ?? process.env.GEMINI_API_KEY;
-
-if (credentials) {
-  fal.config({ credentials });
-}
+const BACKGROUND_REMOVAL_PROMPT = `Remove the background from this image.
+Keep only the character/object fully intact.
+Return a PNG with transparent background (alpha channel), no checkerboard, no solid background.`;
 
 export async function POST(request: NextRequest) {
   try {
-    if (!credentials) {
+    if (!getGeminiApiKey()) {
       return NextResponse.json(
-        { error: "Missing FAL_KEY or GEMINI_API_KEY" },
+        { error: "Missing GEMINI_API_KEY" },
         { status: 400 }
       );
     }
@@ -24,27 +22,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await fal.subscribe("fal-ai/bria/background/remove", {
-      input: {
-        image_url: imageUrl,
-      },
+    const image = await generateImage({
+      prompt: BACKGROUND_REMOVAL_PROMPT,
+      imageUrls: [imageUrl],
+      aspectRatio: "1:1",
+      imageSize: "1K"
     });
 
-    const data = result.data as {
-      image: { url: string; width: number; height: number };
-    };
-
-    if (!data.image) {
-      return NextResponse.json(
-        { error: "Background removal failed" },
-        { status: 500 }
-      );
-    }
-
     return NextResponse.json({
-      imageUrl: data.image.url,
-      width: data.image.width,
-      height: data.image.height,
+      imageUrl: image.imageUrl,
+      width: image.width,
+      height: image.height
     });
   } catch (error) {
     console.error("Error removing background:", error);

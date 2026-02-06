@@ -1,6 +1,6 @@
 # Sprite Sheet Creator
 
-Sprite sheet generator for 2D pixel art characters. Built with [fal.ai](https://fal.ai).
+Sprite sheet generator for 2D pixel art characters. Built with Google Gemini image APIs.
 
 ## Demo
 
@@ -21,7 +21,7 @@ Sprite sheet generator for 2D pixel art characters. Built with [fal.ai](https://
 - **Jump Animation** - Generate 4-frame jump animation sprite sheets (2x2 grid)
 - **Attack Animation** - Generate 4-frame attack animation sprite sheets (2x2 grid) - AI picks the attack style
 - **Idle Animation** - Generate 4-frame idle/breathing animation sprite sheets (2x2 grid)
-- **Background Removal** - Clean transparent backgrounds using Bria
+- **Background Removal** - Prompt-based transparent background removal via Gemini
 - **Frame Extraction** - Adjustable grid dividers for precise frame cropping
 - **Animation Preview** - Test animations with adjustable FPS
 - **Custom Backgrounds** - AI-generated 3-layer parallax backgrounds based on your character
@@ -37,7 +37,7 @@ Generate character-specific parallax backgrounds with 3 layers:
 | **Mid** | Character's iconic location (e.g., Hidden Leaf Village for Naruto) |
 | **Foreground** | Ground layer with terrain matching the character's world |
 
-Nano-banana-pro uses your character image to generate backgrounds that match their style and story.
+Gemini image generation uses your character image to generate backgrounds that match style and story.
 
 ## Getting Started
 
@@ -46,14 +46,12 @@ Nano-banana-pro uses your character image to generate backgrounds that match the
 npm install
 ```
 
-2. Create a `.env.local` file with your fal.ai API key (or a Gemini key):
+2. Create a `.env.local` file with your Gemini API key:
 ```
-FAL_KEY=your_api_key_here
-# or
 GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
-Get your API key at https://fal.ai/dashboard/keys
+Get your API key at https://aistudio.google.com/apikey
 
 3. Run the development server:
 ```bash
@@ -79,5 +77,5 @@ npm run dev
 
 - Next.js 14
 - React 18
-- fal.ai (nano-banana-pro, Bria background removal)
+- Google Gemini image generation API (`nano-banana-pro-preview`)
 - HTML Canvas

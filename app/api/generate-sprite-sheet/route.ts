@@ -1,11 +1,5 @@
-import { fal } from "@fal-ai/client";
 import { NextRequest, NextResponse } from "next/server";
-
-const credentials = process.env.FAL_KEY ?? process.env.GEMINI_API_KEY;
-
-if (credentials) {
-  fal.config({ credentials });
-}
+import { generateImage, getGeminiApiKey } from "../../lib/gemini-image";
 
 const WALK_SPRITE_PROMPT = `Create a 4-frame pixel art walk cycle sprite sheet of this character.
 
@@ -85,9 +79,9 @@ const ASPECT_RATIOS: Record<SpriteType, string> = {
 
 export async function POST(request: NextRequest) {
   try {
-    if (!credentials) {
+    if (!getGeminiApiKey()) {
       return NextResponse.json(
-        { error: "Missing FAL_KEY or GEMINI_API_KEY" },
+        { error: "Missing GEMINI_API_KEY" },
         { status: 400 }
       );
     }
@@ -104,33 +98,18 @@ export async function POST(request: NextRequest) {
     const prompt = customPrompt || PROMPTS[spriteType] || PROMPTS.walk;
     const aspectRatio = ASPECT_RATIOS[spriteType] || ASPECT_RATIOS.walk;
 
-    const result = await fal.subscribe("fal-ai/nano-banana-pro/edit", {
-      input: {
-        prompt,
-        image_urls: [characterImageUrl],
-        num_images: 1,
-        aspect_ratio: aspectRatio,
-        output_format: "png",
-        resolution: "1K",
-      },
+    const image = await generateImage({
+      prompt,
+      imageUrls: [characterImageUrl],
+      aspectRatio,
+      imageSize: "1K"
     });
 
-    const data = result.data as {
-      images: Array<{ url: string; width: number; height: number }>;
-    };
-
-    if (!data.images || data.images.length === 0) {
-      return NextResponse.json(
-        { error: "No sprite sheet generated" },
-        { status: 500 }
-      );
-    }
-
     return NextResponse.json({
-      imageUrl: data.images[0].url,
-      width: data.images[0].width,
-      height: data.images[0].height,
-      type: spriteType,
+      imageUrl: image.imageUrl,
+      width: image.width,
+      height: image.height,
+      type: spriteType
     });
   } catch (error) {
     console.error("Error generating sprite sheet:", error);
