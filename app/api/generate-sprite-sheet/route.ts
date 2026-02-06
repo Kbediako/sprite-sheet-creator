@@ -98,7 +98,12 @@ export async function POST(request: NextRequest) {
     const spriteType: SpriteType = VALID_SPRITE_TYPES.includes(type as SpriteType)
       ? (type as SpriteType)
       : "walk";
-    const prompt = customPrompt || PROMPTS[spriteType];
+    const basePrompt = PROMPTS[spriteType];
+    const customPromptText =
+      typeof customPrompt === "string" ? customPrompt.trim() : "";
+    const prompt = customPromptText
+      ? `${customPromptText}\n\n${basePrompt}`
+      : basePrompt;
     const aspectRatio = ASPECT_RATIOS[spriteType];
 
     const image = await generateImage({
