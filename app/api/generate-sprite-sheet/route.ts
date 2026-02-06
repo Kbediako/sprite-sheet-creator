@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     if (!getGeminiApiKey()) {
       return NextResponse.json(
         { error: "Missing GEMINI_API_KEY" },
-        { status: 400 }
+        { status: 500 }
       );
     }
     const { characterImageUrl, type = "walk", customPrompt } = await request.json();
