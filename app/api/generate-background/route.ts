@@ -6,6 +6,7 @@ import {
 } from "../../lib/gemini-image";
 
 export const maxDuration = 300;
+const BACKGROUND_STEP_TIMEOUT_MS = 50_000;
 
 const LAYER1_PROMPT = (characterPrompt: string) =>
   `Create the SKY/BACKDROP layer for a side-scrolling pixel art game parallax background.
@@ -47,7 +48,8 @@ async function generateLayer(
     prompt,
     imageUrls,
     aspectRatio,
-    imageSize: "1K"
+    imageSize: "1K",
+    timeoutMs: BACKGROUND_STEP_TIMEOUT_MS
   });
 
   return {
@@ -64,7 +66,8 @@ async function removeBackground(
     prompt: BACKGROUND_REMOVAL_PROMPT,
     imageUrls: [imageUrl],
     aspectRatio: "source",
-    imageSize: "1K"
+    imageSize: "1K",
+    timeoutMs: BACKGROUND_STEP_TIMEOUT_MS
   });
 
   return {

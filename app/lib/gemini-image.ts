@@ -11,6 +11,11 @@ const DEFAULT_TIMEOUT_MS = Number.isFinite(
   ? Number.parseInt(process.env.GEMINI_IMAGE_TIMEOUT_MS || "", 10)
   : 120_000;
 const EXTERNAL_FETCH_TIMEOUT_MS = 20_000;
+const MAX_EXTERNAL_IMAGE_BYTES = Number.isFinite(
+  Number.parseInt(process.env.GEMINI_MAX_EXTERNAL_IMAGE_BYTES || "", 10)
+)
+  ? Number.parseInt(process.env.GEMINI_MAX_EXTERNAL_IMAGE_BYTES || "", 10)
+  : 10 * 1024 * 1024;
 const SUPPORTED_ASPECT_RATIOS = ["1:1", "4:3", "3:4", "16:9", "9:16", "21:9"];
 
 export const BACKGROUND_REMOVAL_PROMPT = `Remove the background from this image.
@@ -356,6 +361,63 @@ async function fetchWithTimeout(
   }
 }
 
+function validateContentLength(
+  contentLengthHeader: string | null,
+  limitBytes: number
+): void {
+  if (!contentLengthHeader) return;
+  const parsedContentLength = Number.parseInt(contentLengthHeader, 10);
+  if (!Number.isFinite(parsedContentLength) || parsedContentLength < 0) return;
+  if (parsedContentLength > limitBytes) {
+    throw new Error(
+      `Image exceeds maximum allowed size (${limitBytes} bytes)`
+    );
+  }
+}
+
+async function readResponseBytesWithLimit(
+  response: Response,
+  limitBytes: number
+): Promise<Buffer> {
+  validateContentLength(response.headers.get("content-length"), limitBytes);
+
+  if (!response.body) {
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.length > limitBytes) {
+      throw new Error(
+        `Image exceeds maximum allowed size (${limitBytes} bytes)`
+      );
+    }
+    return bytes;
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Buffer[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value || value.byteLength === 0) continue;
+
+      totalBytes += value.byteLength;
+      if (totalBytes > limitBytes) {
+        await reader.cancel("Image exceeds maximum allowed size");
+        throw new Error(
+          `Image exceeds maximum allowed size (${limitBytes} bytes)`
+        );
+      }
+
+      chunks.push(Buffer.from(value));
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return Buffer.concat(chunks, totalBytes);
+}
+
 async function toInlineDataPart(url: string): Promise<InlineDataPartResult> {
   const fromDataUrl = parseDataUrl(url);
   if (fromDataUrl) {
@@ -378,7 +440,10 @@ async function toInlineDataPart(url: string): Promise<InlineDataPartResult> {
   }
 
   const mimeType = normalizeMimeType(response.headers.get("content-type"));
-  const bytes = Buffer.from(await response.arrayBuffer());
+  const bytes = await readResponseBytesWithLimit(
+    response,
+    MAX_EXTERNAL_IMAGE_BYTES
+  );
 
   return {
     part: {
