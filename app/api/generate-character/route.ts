@@ -1,10 +1,5 @@
-import { fal } from "@fal-ai/client";
 import { NextRequest, NextResponse } from "next/server";
-
-// Configure fal client with API key from environment
-fal.config({
-  credentials: process.env.FAL_KEY,
-});
+import { generateImage, getGeminiApiKey } from "../../lib/gemini-image";
 
 const CHARACTER_STYLE_PROMPT = `Generate a single character only, centered in the frame on a plain white background.
 The character should be rendered in detailed 32-bit pixel art style (like PlayStation 1 / SNES era games).
@@ -22,6 +17,12 @@ Maintain the character's key features, colors, and identity while converting to 
 
 export async function POST(request: NextRequest) {
   try {
+    if (!getGeminiApiKey()) {
+      return NextResponse.json(
+        { error: "Missing GEMINI_API_KEY" },
+        { status: 500 }
+      );
+    }
     const { prompt, imageUrl } = await request.json();
 
     // Image-to-image mode: convert uploaded image to pixel art
@@ -30,32 +31,17 @@ export async function POST(request: NextRequest) {
         ? `${prompt}. ${IMAGE_TO_PIXEL_PROMPT}`
         : IMAGE_TO_PIXEL_PROMPT;
 
-      const result = await fal.subscribe("fal-ai/nano-banana-pro/edit", {
-        input: {
-          prompt: fullPrompt,
-          image_urls: [imageUrl],
-          num_images: 1,
-          aspect_ratio: "1:1",
-          output_format: "png",
-          resolution: "1K",
-        },
+      const image = await generateImage({
+        prompt: fullPrompt,
+        imageUrls: [imageUrl],
+        aspectRatio: "1:1",
+        imageSize: "1K"
       });
 
-      const data = result.data as {
-        images: Array<{ url: string; width: number; height: number }>;
-      };
-
-      if (!data.images || data.images.length === 0) {
-        return NextResponse.json(
-          { error: "No image generated" },
-          { status: 500 }
-        );
-      }
-
       return NextResponse.json({
-        imageUrl: data.images[0].url,
-        width: data.images[0].width,
-        height: data.images[0].height,
+        imageUrl: image.imageUrl,
+        width: image.width,
+        height: image.height
       });
     }
 
@@ -69,38 +55,19 @@ export async function POST(request: NextRequest) {
 
     const fullPrompt = `${prompt}. ${CHARACTER_STYLE_PROMPT}`;
 
-    const result = await fal.subscribe("fal-ai/nano-banana-pro", {
-      input: {
-        prompt: fullPrompt,
-        num_images: 1,
-        aspect_ratio: "1:1",
-        output_format: "png",
-        resolution: "1K",
-      },
+    const image = await generateImage({
+      prompt: fullPrompt,
+      aspectRatio: "1:1",
+      imageSize: "1K"
     });
 
-    const data = result.data as {
-      images: Array<{ url: string; width: number; height: number }>;
-    };
-
-    if (!data.images || data.images.length === 0) {
-      return NextResponse.json(
-        { error: "No image generated" },
-        { status: 500 }
-      );
-    }
-
     return NextResponse.json({
-      imageUrl: data.images[0].url,
-      width: data.images[0].width,
-      height: data.images[0].height,
+      imageUrl: image.imageUrl,
+      width: image.width,
+      height: image.height
     });
   } catch (error: unknown) {
     console.error("Error generating character:", error);
-    // Log full error details for fal.ai validation errors
-    if (error && typeof error === 'object' && 'body' in error) {
-      console.error("Error body:", JSON.stringify((error as { body: unknown }).body, null, 2));
-    }
     return NextResponse.json(
       { error: "Failed to generate character" },
       { status: 500 }

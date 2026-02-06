@@ -1,13 +1,18 @@
-import { fal } from "@fal-ai/client";
 import { NextRequest, NextResponse } from "next/server";
-
-// Configure fal client with API key from environment
-fal.config({
-  credentials: process.env.FAL_KEY,
-});
+import {
+  BACKGROUND_REMOVAL_PROMPT,
+  generateImage,
+  getGeminiApiKey
+} from "../../lib/gemini-image";
 
 export async function POST(request: NextRequest) {
   try {
+    if (!getGeminiApiKey()) {
+      return NextResponse.json(
+        { error: "Missing GEMINI_API_KEY" },
+        { status: 500 }
+      );
+    }
     const { imageUrl } = await request.json();
 
     if (!imageUrl) {
@@ -17,27 +22,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await fal.subscribe("fal-ai/bria/background/remove", {
-      input: {
-        image_url: imageUrl,
-      },
+    const image = await generateImage({
+      prompt: BACKGROUND_REMOVAL_PROMPT,
+      imageUrls: [imageUrl],
+      aspectRatio: "source",
+      imageSize: "1K"
     });
 
-    const data = result.data as {
-      image: { url: string; width: number; height: number };
-    };
-
-    if (!data.image) {
-      return NextResponse.json(
-        { error: "Background removal failed" },
-        { status: 500 }
-      );
-    }
-
     return NextResponse.json({
-      imageUrl: data.image.url,
-      width: data.image.width,
-      height: data.image.height,
+      imageUrl: image.imageUrl,
+      width: image.width,
+      height: image.height
     });
   } catch (error) {
     console.error("Error removing background:", error);

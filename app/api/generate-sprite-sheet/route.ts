@@ -1,10 +1,5 @@
-import { fal } from "@fal-ai/client";
 import { NextRequest, NextResponse } from "next/server";
-
-// Configure fal client with API key from environment
-fal.config({
-  credentials: process.env.FAL_KEY,
-});
+import { generateImage, getGeminiApiKey } from "../../lib/gemini-image";
 
 const WALK_SPRITE_PROMPT = `Create a 4-frame pixel art walk cycle sprite sheet of this character.
 
@@ -67,6 +62,7 @@ Keep movements SUBTLE - this is a gentle breathing/idle loop, not dramatic motio
 Use detailed 32-bit pixel art style with proper shading and highlights. Same character design in all frames. Character facing right.`;
 
 type SpriteType = "walk" | "jump" | "attack" | "idle";
+const VALID_SPRITE_TYPES: SpriteType[] = ["walk", "jump", "attack", "idle"];
 
 const PROMPTS: Record<SpriteType, string> = {
   walk: WALK_SPRITE_PROMPT,
@@ -84,6 +80,12 @@ const ASPECT_RATIOS: Record<SpriteType, string> = {
 
 export async function POST(request: NextRequest) {
   try {
+    if (!getGeminiApiKey()) {
+      return NextResponse.json(
+        { error: "Missing GEMINI_API_KEY" },
+        { status: 500 }
+      );
+    }
     const { characterImageUrl, type = "walk", customPrompt } = await request.json();
 
     if (!characterImageUrl) {
@@ -93,37 +95,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const spriteType = (type as SpriteType) || "walk";
-    const prompt = customPrompt || PROMPTS[spriteType] || PROMPTS.walk;
-    const aspectRatio = ASPECT_RATIOS[spriteType] || ASPECT_RATIOS.walk;
+    const spriteType: SpriteType = VALID_SPRITE_TYPES.includes(type as SpriteType)
+      ? (type as SpriteType)
+      : "walk";
+    const basePrompt = PROMPTS[spriteType];
+    const customPromptText =
+      typeof customPrompt === "string" ? customPrompt.trim() : "";
+    const prompt = customPromptText
+      ? `${customPromptText}\n\n${basePrompt}`
+      : basePrompt;
+    const aspectRatio = ASPECT_RATIOS[spriteType];
 
-    const result = await fal.subscribe("fal-ai/nano-banana-pro/edit", {
-      input: {
-        prompt,
-        image_urls: [characterImageUrl],
-        num_images: 1,
-        aspect_ratio: aspectRatio,
-        output_format: "png",
-        resolution: "1K",
-      },
+    const image = await generateImage({
+      prompt,
+      imageUrls: [characterImageUrl],
+      aspectRatio,
+      imageSize: "1K"
     });
 
-    const data = result.data as {
-      images: Array<{ url: string; width: number; height: number }>;
-    };
-
-    if (!data.images || data.images.length === 0) {
-      return NextResponse.json(
-        { error: "No sprite sheet generated" },
-        { status: 500 }
-      );
-    }
-
     return NextResponse.json({
-      imageUrl: data.images[0].url,
-      width: data.images[0].width,
-      height: data.images[0].height,
-      type: spriteType,
+      imageUrl: image.imageUrl,
+      width: image.width,
+      height: image.height,
+      type: spriteType
     });
   } catch (error) {
     console.error("Error generating sprite sheet:", error);
